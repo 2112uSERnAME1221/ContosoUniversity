@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -22,9 +23,12 @@ namespace ContosoUniversity.Models
         [Display(Name = "Start Date")]
         public DateTime StartDate { get; set; }
 
-        public int InstructorID { get; set; }
-
+        public int? InstructorID { get; set; }
+        [ForeignKey(nameof(InstructorID))]
+        [ValidateNever]
         public Instructor Administrator { get; set; }
+
+        [ValidateNever]
         public ICollection<Course> Courses { get; set; }
     }
 }

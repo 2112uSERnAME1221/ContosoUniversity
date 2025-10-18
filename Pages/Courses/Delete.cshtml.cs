@@ -20,7 +20,6 @@ namespace ContosoUniversity.Pages.Courses
         }
 
         [BindProperty]
-        public Department Department { get; set; } = default!;
         public Course? Course { get; set; }
 
         public async Task<IActionResult> OnGetAsync(int? id)
@@ -34,17 +33,9 @@ namespace ContosoUniversity.Pages.Courses
             .AsNoTracking()
             .Include(c => c.Department)
             .FirstOrDefaultAsync(m => m.CourseID == id);
+            
 
-            var department = await _context.Departments.FirstOrDefaultAsync(m => m.DepartmentID == id);
-
-            if (department is not null)
-            {
-                Department = department;
-
-                return Page();
-            }
-
-            return NotFound();
+            return Page();
         }
 
         public async Task<IActionResult> OnPostAsync(int? id)
@@ -54,11 +45,11 @@ namespace ContosoUniversity.Pages.Courses
                 return NotFound();
             }
 
-            var department = await _context.Departments.FindAsync(id);
-            if (department != null)
+            var course = await _context.Courses.FindAsync(id);
+            if (course != null)
             {
-                Department = department;
-                _context.Departments.Remove(Department);
+                Course = course;
+                _context.Courses.Remove(Course);
                 await _context.SaveChangesAsync();
             }
 

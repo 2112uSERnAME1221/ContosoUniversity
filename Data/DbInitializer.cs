@@ -1,330 +1,117 @@
 ﻿using ContosoUniversity.Models;
-using System;
+using Microsoft.CodeAnalysis;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml;
+using System.Xml.Serialization;
 
 namespace ContosoUniversity.Data
 {
     public static class DbInitializer
     {
-        public static void Initialize(SchoolContext context)
+        public static void Initialize(SchoolContext context, string xmlPath = @"C:\Users\benga\source\repos\ContosoUniversity\Data\seed.xml")
         {
-            // Look for any students.
-            if (context.Students.Any())
+
+            if (context.Students.Any()) return;
+
+            SeedDto seed = LoadSeed(xmlPath);
+
+            Dictionary<string, Instructor> instructorDict = seed.Instructors.ToDictionary(
+                x => x.Id,
+                x => new Instructor { FirstName = x.FirstName
+                                   , LastName = x.LastName
+                                   , HireDate = x.HireDate
+                }
+            );
+            Dictionary<string, Student> studentDict = seed.Students.ToDictionary(
+                x => x.Id,
+                x => new Student { FirstName = x.FirstName
+                                 , LastName = x.LastName
+                                 , EnrollmentDate = x.EnrollmentDate
+                }
+                );
+            Dictionary<string, Department> departmentDict = seed.Departments.ToDictionary(
+                x => x.Id,
+                x => new Department { Name = x.Name
+                                    , Budget = x.Budget
+                                    , StartDate = x.StartDate
+                                    , Administrator = (!string.IsNullOrWhiteSpace(x.AdministratorRef) && instructorDict.ContainsKey(x.AdministratorRef)) ? instructorDict[x.AdministratorRef] : null
+                }
+                );
+            Dictionary<int, Course> courseDict = seed.Courses.ToDictionary(
+                x => x.CourseID,
+                x => {
+                    List<Instructor> instructorList = new List<Instructor>();
+
+                    if (x.InstructorRefs != null)
+                    {
+                        foreach (string instructorRef in x.InstructorRefs)
+                        {
+                            instructorList.Add(instructorDict[instructorRef]);
+                        }
+                    }
+
+                    return new Course { CourseID = x.CourseID
+                    , Title = x.Title
+                    , Credits = x.Credits
+                    , Department = departmentDict[x.DepartmentRef]
+                    , Instructors = instructorList
+                    };
+                }
+                );
+
+            context.AddRange(instructorDict.Values);
+            context.AddRange(studentDict.Values);
+            context.AddRange(departmentDict.Values);
+            context.AddRange(courseDict.Values);
+
+            foreach (EnrollmentDto e in seed.Enrollments)
             {
-                return;   // DB has been seeded
+                Grade? grade = null;
+
+                if (!string.IsNullOrWhiteSpace(e.Grade) && Enum.TryParse<Grade>(e.Grade, true, out Grade g)) {                  
+                    grade = g;
+                }
+                var enrollment = new Enrollment { Student = studentDict[e.StudentRef]
+                                           , Course = courseDict[e.CourseRef]
+                                           , Grade = grade
+                };
+
+                context.Enrollments.Add(enrollment);
             }
 
-            var alexander = new Student
+
+            foreach (OfficeAssignmentDto o in seed.OfficeAssignments)
             {
-                FirstName = "Carson",
-                LastName = "Alexander",
-                EnrollmentDate = DateTime.Parse("2016-09-01")
-            };
+                OfficeAssignment officeAssignment = new OfficeAssignment
+                {Instructor = instructorDict[o.InstructorRef]
+                , Location = o.Location
+                };
 
-            var alonso = new Student
-            {
-                FirstName = "Meredith",
-                LastName = "Alonso",
-                EnrollmentDate = DateTime.Parse("2018-09-01")
-            };
+                context.OfficeAssignments.Add(officeAssignment);
+            }
 
-            var anand = new Student
-            {
-                FirstName = "Arturo",
-                LastName = "Anand",
-                EnrollmentDate = DateTime.Parse("2019-09-01")
-            };
-
-            var barzdukas = new Student
-            {
-                FirstName = "Gytis",
-                LastName = "Barzdukas",
-                EnrollmentDate = DateTime.Parse("2018-09-01")
-            };
-
-            var li = new Student
-            {
-                FirstName = "Yan",
-                LastName = "Li",
-                EnrollmentDate = DateTime.Parse("2018-09-01")
-            };
-
-            var justice = new Student
-            {
-                FirstName = "Peggy",
-                LastName = "Justice",
-                EnrollmentDate = DateTime.Parse("2017-09-01")
-            };
-
-            var norman = new Student
-            {
-                FirstName = "Laura",
-                LastName = "Norman",
-                EnrollmentDate = DateTime.Parse("2019-09-01")
-            };
-
-            var olivetto = new Student
-            {
-                FirstName = "Nino",
-                LastName = "Olivetto",
-                EnrollmentDate = DateTime.Parse("2011-09-01")
-            };
-
-            var students = new Student[]
-            {
-                alexander,
-                alonso,
-                anand,
-                barzdukas,
-                li,
-                justice,
-                norman,
-                olivetto
-            };
-
-            context.AddRange(students);
-
-            var abercrombie = new Instructor
-            {
-                FirstMidName = "Kim",
-                LastName = "Abercrombie",
-                HireDate = DateTime.Parse("1995-03-11")
-            };
-
-            var fakhouri = new Instructor
-            {
-                FirstMidName = "Fadi",
-                LastName = "Fakhouri",
-                HireDate = DateTime.Parse("2002-07-06")
-            };
-
-            var harui = new Instructor
-            {
-                FirstMidName = "Roger",
-                LastName = "Harui",
-                HireDate = DateTime.Parse("1998-07-01")
-            };
-
-            var kapoor = new Instructor
-            {
-                FirstMidName = "Candace",
-                LastName = "Kapoor",
-                HireDate = DateTime.Parse("2001-01-15")
-            };
-
-            var zheng = new Instructor
-            {
-                FirstMidName = "Roger",
-                LastName = "Zheng",
-                HireDate = DateTime.Parse("2004-02-12")
-            };
-
-            var instructors = new Instructor[]
-            {
-                abercrombie,
-                fakhouri,
-                harui,
-                kapoor,
-                zheng
-            };
-
-            context.AddRange(instructors);
-
-            var officeAssignments = new OfficeAssignment[]
-            {
-                new OfficeAssignment {
-                    Instructor = fakhouri,
-                    Location = "Smith 17" },
-                new OfficeAssignment {
-                    Instructor = harui,
-                    Location = "Gowan 27" },
-                new OfficeAssignment {
-                    Instructor = kapoor,
-                    Location = "Thompson 304" }
-            };
-
-            context.AddRange(officeAssignments);
-
-            var english = new Department
-            {
-                Name = "English",
-                Budget = 350000,
-                StartDate = DateTime.Parse("2007-09-01"),
-                Administrator = abercrombie
-            };
-
-            var mathematics = new Department
-            {
-                Name = "Mathematics",
-                Budget = 100000,
-                StartDate = DateTime.Parse("2007-09-01"),
-                Administrator = fakhouri
-            };
-
-            var engineering = new Department
-            {
-                Name = "Engineering",
-                Budget = 350000,
-                StartDate = DateTime.Parse("2007-09-01"),
-                Administrator = harui
-            };
-
-            var economics = new Department
-            {
-                Name = "Economics",
-                Budget = 100000,
-                StartDate = DateTime.Parse("2007-09-01"),
-                Administrator = kapoor
-            };
-
-            var departments = new Department[]
-            {
-                english,
-                mathematics,
-                engineering,
-                economics
-            };
-
-            context.AddRange(departments);
-
-            var chemistry = new Course
-            {
-                CourseID = 1050,
-                Title = "Chemistry",
-                Credits = 3,
-                Department = engineering,
-                Instructors = new List<Instructor> { kapoor, harui }
-            };
-
-            var microeconomics = new Course
-            {
-                CourseID = 4022,
-                Title = "Microeconomics",
-                Credits = 3,
-                Department = economics,
-                Instructors = new List<Instructor> { zheng }
-            };
-
-            var macroeconmics = new Course
-            {
-                CourseID = 4041,
-                Title = "Macroeconomics",
-                Credits = 3,
-                Department = economics,
-                Instructors = new List<Instructor> { zheng }
-            };
-
-            var calculus = new Course
-            {
-                CourseID = 1045,
-                Title = "Calculus",
-                Credits = 4,
-                Department = mathematics,
-                Instructors = new List<Instructor> { fakhouri }
-            };
-
-            var trigonometry = new Course
-            {
-                CourseID = 3141,
-                Title = "Trigonometry",
-                Credits = 4,
-                Department = mathematics,
-                Instructors = new List<Instructor> { harui }
-            };
-
-            var composition = new Course
-            {
-                CourseID = 2021,
-                Title = "Composition",
-                Credits = 3,
-                Department = english,
-                Instructors = new List<Instructor> { abercrombie }
-            };
-
-            var literature = new Course
-            {
-                CourseID = 2042,
-                Title = "Literature",
-                Credits = 4,
-                Department = english,
-                Instructors = new List<Instructor> { abercrombie }
-            };
-
-            var courses = new Course[]
-            {
-                chemistry,
-                microeconomics,
-                macroeconmics,
-                calculus,
-                trigonometry,
-                composition,
-                literature
-            };
-
-            context.AddRange(courses);
-
-            var enrollments = new Enrollment[]
-            {
-                new Enrollment {
-                    Student = alexander,
-                    Course = chemistry,
-                    Grade = Grade.A
-                },
-                new Enrollment {
-                    Student = alexander,
-                    Course = microeconomics,
-                    Grade = Grade.C
-                },
-                new Enrollment {
-                    Student = alexander,
-                    Course = macroeconmics,
-                    Grade = Grade.B
-                },
-                new Enrollment {
-                    Student = alonso,
-                    Course = calculus,
-                    Grade = Grade.B
-                },
-                new Enrollment {
-                    Student = alonso,
-                    Course = trigonometry,
-                    Grade = Grade.B
-                },
-                new Enrollment {
-                    Student = alonso,
-                    Course = composition,
-                    Grade = Grade.B
-                },
-                new Enrollment {
-                    Student = anand,
-                    Course = chemistry
-                },
-                new Enrollment {
-                    Student = anand,
-                    Course = microeconomics,
-                    Grade = Grade.B
-                },
-                new Enrollment {
-                    Student = barzdukas,
-                    Course = chemistry,
-                    Grade = Grade.B
-                },
-                new Enrollment {
-                    Student = li,
-                    Course = composition,
-                    Grade = Grade.B
-                },
-                new Enrollment {
-                    Student = justice,
-                    Course = literature,
-                    Grade = Grade.B
-                }
-            };
-
-            context.AddRange(enrollments);
             context.SaveChanges();
+        }
+
+        public static SeedDto LoadSeed(string path)
+        {
+            var ser = new XmlSerializer(typeof(SeedDto));
+            var stg = new XmlReaderSettings{ IgnoreComments = true                                          
+                                           , IgnoreProcessingInstructions = true
+                                           };
+            using var reader = XmlReader.Create(path, stg);
+
+            try
+            {
+                return (SeedDto)ser.Deserialize(reader);
+            }
+            catch (InvalidOperationException ex)
+            {
+                string msg = $"Failed to deserialize '{path}'. {ex.InnerException?.Message ?? ex.Message}";
+                throw new InvalidOperationException(msg, ex);
+            }
         }
     }
 }
-

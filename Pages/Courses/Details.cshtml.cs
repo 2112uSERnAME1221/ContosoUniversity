@@ -36,16 +36,7 @@ namespace ContosoUniversity.Pages.Courses
            .Include(c => c.Department)
            .FirstOrDefaultAsync(m => m.CourseID == id);
 
-            var department = await _context.Departments.FirstOrDefaultAsync(m => m.DepartmentID == id);
-
-            if (department is not null)
-            {
-                Department = department;
-
-                return Page();
-            }
-
-            return NotFound();
+            return Page();
         }
     }
 }
